@@ -99,6 +99,58 @@ ICE commonly works with:
 
 `socket.mjs` does not implement STUN or TURN. It only helps exchange the signaling data needed so the browser can use ICE with configured STUN/TURN servers.
 
+## WebRTC Mapped to the 7 OSI Layers
+
+The OSI model and WebRTC do not line up perfectly, but this table is a useful way to understand where each part of this project fits.
+
+| OSI Layer | Name | In this project | What it does |
+| --- | --- | --- | --- |
+| 7 | Application | `socket.mjs`, Express routes, `webrtc-test.html`, SDP offer/answer logic | Handles signaling, app logic, test UI, and the rules for how peers exchange setup data. |
+| 6 | Presentation | SDP format, JSON request/response bodies | Describes how connection data is structured and encoded so both peers understand it. |
+| 5 | Session | WebRTC session setup, signaling flow, offer/answer state | Creates, coordinates, and maintains the conversation needed to start a peer session. |
+| 4 | Transport | UDP, TCP fallback, DTLS, SRTP, SCTP | Moves packets between peers. WebRTC media usually prefers UDP. DataChannel uses SCTP over DTLS. |
+| 3 | Network | IP addressing, ICE, STUN, TURN candidates | Finds reachable paths across networks, NATs, and firewalls so peers can connect. |
+| 2 | Data Link | Wi-Fi, Ethernet, local network frames | Moves packets across the local network segment between devices and router. |
+| 1 | Physical | Radio, cables, device network hardware | The actual electrical or wireless path carrying bits between machines. |
+
+### Important Interpretation
+
+`socket.mjs` mostly lives in the upper layers:
+
+1. Layer 7 because it is application logic.
+2. Layer 6 because it exchanges JSON and SDP data formats.
+3. Layer 5 because it helps establish the WebRTC session.
+
+ICE mainly belongs to Layer 3 because it is about discovering and testing network paths.
+
+The direct peer-to-peer WebRTC connection spans multiple layers after signaling completes:
+
+1. ICE and STUN/TURN help find the route.
+2. DTLS secures the transport.
+3. SRTP carries real-time audio/video.
+4. SCTP carries DataChannel messages.
+
+### Simplified Stack Diagram
+
+```text
+Layer 7  Application   -> socket.mjs, Express API, webrtc-test.html, signaling rules
+Layer 6  Presentation  -> JSON, SDP
+Layer 5  Session       -> Offer/Answer exchange, session establishment
+Layer 4  Transport     -> UDP / TCP, DTLS, SRTP, SCTP
+Layer 3  Network       -> IP, ICE, STUN, TURN
+Layer 2  Data Link     -> Wi-Fi / Ethernet
+Layer 1  Physical      -> Radio signals / cables / NIC hardware
+```
+
+### What Happens During Connection Setup
+
+1. `socket.mjs` helps both browsers exchange signaling messages at the application level.
+2. The browsers exchange SDP so each side knows what kind of connection to build.
+3. ICE gathers candidates and checks which network path actually works.
+4. If direct connectivity works, peers connect directly.
+5. If not, TURN may relay traffic.
+6. Once connected, audio, video, or DataChannel traffic flows peer-to-peer without going through `socket.mjs`.
+
 ## High-Level Architecture
 
 ```mermaid
