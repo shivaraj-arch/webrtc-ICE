@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC Data Channel Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 20px;
+            line-height: 1.5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .panel {
+            border: 2px solid #00ff00;
+            border-radius: 8px;
+            padding: 20px;
+            background: #0a0a0a;
+        }
+        
+        h1 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #00ff00;
+            text-transform: uppercase;
+            text-align: center;
+        }
+        
+        .role-selector {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .role-btn {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #00ff00;
+            background: #1a1a1a;
+            color: #00ff00;
+            cursor: pointer;
+            border-radius: 4px;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        
+        .role-btn:hover {
+            background: #00ff00;
+            color: #1a1a1a;
+        }
+        
+        .role-btn.active {
+            background: #00ff00;
+            color: #1a1a1a;
+        }
+        
+        .role-display {
+            text-align: center;
+            font-size: 14px;
+            margin: 15px 0;
+            padding: 10px;
+            border: 1px dashed #00ff00;
+            border-radius: 4px;
+        }
+        
+        .button-group {
+            display: grid;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        button {
+            padding: 12px;
+            border: 2px solid #00ff00;
+            background: #1a1a1a;
+            color: #00ff00;
+            cursor: pointer;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 12px;
+            text-transform: uppercase;
+            transition: all 0.2s;
+        }
+        
+        button:hover:not(:disabled) {
+            background: #00ff00;
+            color: #1a1a1a;
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-left: 4px solid #00ff00;
+            background: #0a0a0a;
+            border-radius: 2px;
+            font-size: 12px;
+        }
+        
+        .status.error {
+            border-left-color: #ff0000;
+            color: #ff6666;
+        }
+        
+        .status.success {
+            border-left-color: #00ff00;
+            color: #00ff00;
+        }
+        
+        .status.info {
+            border-left-color: #ffff00;
+            color: #ffff00;
+        }
+        
+        .log {
+            background: #000;
+            border: 1px solid #00ff00;
+            border-radius: 4px;
+            padding: 12px;
+            height: 300px;
+            overflow-y: auto;
+            font-size: 11px;
+            line-height: 1.4;
+            margin-top: 20px;
+        }
+        
+        .log-entry {
+            margin: 3px 0;
+        }
+        
+        .log-time {
+            color: #666;
+        }
+        
+        .log-type {
+            font-weight: bold;
+        }
+        
+        .single-column {
+            grid-column: 1 / -1;
+        }
+        
+        .state-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+            background: #ff0000;
+        }
+        
+        .state-indicator.connecting {
+            background: #ffff00;
+            animation: blink 1s infinite;
+        }
+        
+        .state-indicator.connected {
+            background: #00ff00;
+        }
+        
+        .state-indicator.failed {
+            background: #ff0000;
+        }
+        
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+        
+        .stats {
+            font-size: 12px;
+            margin-top: 15px;
+            padding: 10px;
+            border: 1px solid #00ff00;
+            border-radius: 4px;
+        }
+        
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            padding: 5px 0;
+            border-bottom: 1px dotted #333;
+        }
+        
+        .stat-row:last-child {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body>
+        <!-- Diagnostic Panel -->
+        <div class="panel single-column" style="background: #0d2b0d; border-color: #00aa00; margin-bottom: 20px;">
+            <h1>📊 DIAGNOSTIC INFO</h1>
+            <div style="font-size: 12px; line-height: 1.6; color: #00cc00;">
+                <p style="padding: 10px; background: #1a0a0a; border-left: 4px solid #ff6600; margin-bottom: 15px;">
+                    <strong>⚠️ MULTI-DEVICE SETUP:</strong><br>
+                    Do NOT use <code>http://localhost:3000</code> on the second device!<br>
+                    Instead, find your server's <strong>local IP</strong> (like <code>192.168.1.5</code> or <code>10.0.0.50</code>) 
+                    and use <code>http://<YOUR_IP>:3000</code> on both devices.<br>
+                    <strong>Why:</strong> WebRTC needs real addresses to negotiate - loopback only works on the same machine.
+                </p>
+                
+                <p><strong>✅ To test WebRTC:</strong></p>
+                <ol style="margin-left: 20px; margin-top: 10px;">
+                    <li><strong>Same Machine:</strong> Open localhost:3000 in TWO browser tabs. Select different roles. Click START.</li>
+                    <li><strong>Different Machines:</strong> Get your server's IP from terminal: <code>ifconfig</code> or <code>ipconfig</code></li>
+                    <li><strong>Device A:</strong> Go to <code>http://YOUR_IP:3000</code>, select "INITIATOR", click "START WEBRTC"</li>
+                    <li><strong>Device B:</strong> Go to <code>http://YOUR_IP:3000</code>, select "RESPONDER", click "START WEBRTC"</li>
+                    <li>Watch logs. When both show ICE "connected", click "📊 Dump Connection Stats"</li>
+                    <li>If data channel opens (✅ OPEN), try "📤 SEND TEST AUDIO"</li>
+                </ol>
+                
+                <p style="margin-top: 15px; padding: 10px; background: #0a0a0a; border-left: 3px solid #00ccff;">
+                    <strong>💡 STUN/TURN Servers Being Used:</strong><br>
+                    <strong>STUN:</strong> Google (5 servers) - discovers public IP<br>
+                    <strong>TURN:</strong> Viagenie, OpenRelay (2 ports) - relay fallback<br>
+                    <br>
+                    <strong>Candidate Types:</strong><br>
+                    [HOST] = Local IP (LAN)<br>
+                    [SRFLX] = Public IP from STUN<br>
+                    [RELAY] = Proxied via TURN server<br>
+                    <br>
+                    <strong>⚠️ Same Public IP in Dump?</strong><br>
+                    If both peers show the same IP (e.g., 49.37.183.2), it means you're both on the same ISP/network. 
+                    The different <strong>PORTS</strong> (e.g., :14278 vs :27584) identify each peer. 
+                    This is <strong>normal and working correctly!</strong>
+                    <br><br>
+                    If connection fails: Check "📊 Dump Connection Stats" → if no "Working Pair", NAT is blocking UDP
+                </p>
+                
+                <p style="margin-top: 15px; padding: 10px; background: #0a1a1a; border-left: 3px solid #00ff99;">
+                    <strong>🔍 IP Lookup Tool:</strong><br>
+                    <input type="text" id="ip-lookup-input" placeholder="e.g., 49.37.183.2" style="width: 100%; padding: 5px; margin: 8px 0; background: #1a1a1a; color: #00ff00; border: 1px solid #00ff00; border-radius: 3px; font-family: monospace;">
+                    <button onclick="lookupIpInfo()" style="width: 100%; margin-top: 8px; padding: 8px;">🌐 Check IP Info</button>
+                    <div id="ip-lookup-result" style="margin-top: 10px; font-size: 11px; color: #00cc00;"></div>
+                </p>
+            </div>
+        </div>
+            <h1>🖥️ Peer 1</h1>
+            
+            <div class="role-selector">
+                <button class="role-btn" onclick="setPeerRole('initiator')">INITIATOR</button>
+                <button class="role-btn" onclick="setPeerRole('responder')">RESPONDER</button>
+            </div>
+            
+            <div class="role-display" id="peer1-role">⏳ Select Role</div>
+            
+            <div class="button-group">
+                <button onclick="startWebRTC()">🚀 START WEBRTC</button>
+                <button onclick="sendTestAudio()" id="send-btn-1" disabled>📤 SEND TEST AUDIO</button>
+                <button onclick="stopWebRTC()">🛑 STOP</button>
+                <button onclick="resetTest()">🔄 RESET</button>
+            </div>
+            
+            <div id="peer1-status"></div>
+            
+            <div class="stats">
+                <div class="stat-row">
+                    <span>DC State:</span>
+                    <span id="peer1-dc-state">❌ Not Open</span>
+                </div>
+                <div class="stat-row">
+                    <span>ICE State:</span>
+                    <span id="peer1-ice-state">new</span>
+                </div>
+                <div class="stat-row">
+                    <span>Connection State:</span>
+                    <span id="peer1-conn-state">new</span>
+                </div>
+                <div class="stat-row">
+                    <span>Messages Sent:</span>
+                    <span id="peer1-msg-sent">0</span>
+                </div>
+                <div class="stat-row">
+                    <span>Messages Received:</span>
+                    <span id="peer1-msg-recv">0</span>
+                </div>
+            </div>
+            
+            <div style="margin-top: 15px; padding: 10px; background: #0a0a0a; border: 1px solid #444; border-radius: 4px; font-size: 11px;">
+                <button onclick="dumpConnectionStats(1)" style="width: 100%; margin-bottom: 10px;">📊 Dump Connection Stats</button>
+                <div id="peer1-stats-dump" style="max-height: 150px; overflow-y: auto; font-size: 10px; color: #999;"></div>
+            </div>
+            
+            <div class="log" id="peer1-log"></div>
+        </div>
+        
+        <!-- Right Panel -->
+        <div class="panel">
+            <h1>🖥️ Peer 2</h1>
+            
+            <div class="role-selector">
+                <button class="role-btn" onclick="setPeerRole('initiator', 2)">INITIATOR</button>
+                <button class="role-btn" onclick="setPeerRole('responder', 2)">RESPONDER</button>
+            </div>
+            
+            <div class="role-display" id="peer2-role">⏳ Select Role</div>
+            
+            <div class="button-group">
+                <button onclick="startWebRTC(2)">🚀 START WEBRTC</button>
+                <button onclick="sendTestAudio(2)" id="send-btn-2" disabled>📤 SEND TEST AUDIO</button>
+                <button onclick="stopWebRTC(2)">🛑 STOP</button>
+                <button onclick="resetTest()">🔄 RESET</button>
+            </div>
+            
+            <div id="peer2-status"></div>
+            
+            <div class="stats">
+                <div class="stat-row">
+                    <span>DC State:</span>
+                    <span id="peer2-dc-state">❌ Not Open</span>
+                </div>
+                <div class="stat-row">
+                    <span>ICE State:</span>
+                    <span id="peer2-ice-state">new</span>
+                </div>
+                <div class="stat-row">
+                    <span>Connection State:</span>
+                    <span id="peer2-conn-state">new</span>
+                </div>
+                <div class="stat-row">
+                    <span>Messages Sent:</span>
+                    <span id="peer2-msg-sent">0</span>
+                </div>
+                <div class="stat-row">
+                    <span>Messages Received:</span>
+                    <span id="peer2-msg-recv">0</span>
+                </div>
+            </div>
+            
+            <div style="margin-top: 15px; padding: 10px; background: #0a0a0a; border: 1px solid #444; border-radius: 4px; font-size: 11px;">
+                <button onclick="dumpConnectionStats(2)" style="width: 100%; margin-bottom: 10px;">📊 Dump Connection Stats</button>
+                <div id="peer2-stats-dump" style="max-height: 150px; overflow-y: auto; font-size: 10px; color: #999;"></div>
+            </div>
+            
+            <div class="log" id="peer2-log"></div>
+        </div>
+        
+        <!-- Combined Log -->
+        <div class="panel single-column">
+            <h1>📋 COMBINED LOG</h1>
+            <div class="log" id="combined-log"></div>
+        </div>
+    </div>
+
+    <script>
+        // Store peer state
+        const peers = {
+            1: {
+                role: null,
+                pc: null,
+                dc: null,
+                dataChannelReady: false,
+                stats: { sent: 0, received: 0 },
+                pendingIceCandidates: []  // Queue for candidates that arrive before remote description
+            },
+            2: {
+                role: null,
+                pc: null,
+                dc: null,
+                dataChannelReady: false,
+                stats: { sent: 0, received: 0 },
+                pendingIceCandidates: []  // Queue for candidates that arrive before remote description
+            }
+        };
+
+        const ICE_SERVERS = [
+            // STUN servers (free)
+            { urls: ['stun:stun.l.google.com:19302'], name: 'Google STUN (Primary)' },
+            { urls: ['stun:stun1.l.google.com:19302'], name: 'Google STUN 1' },
+            { urls: ['stun:stun2.l.google.com:19302'], name: 'Google STUN 2' },
+            { urls: ['stun:stun3.l.google.com:19302'], name: 'Google STUN 3' },
+            { urls: ['stun:stun4.l.google.com:19302'], name: 'Google STUN 4' },
+            // Public TURN servers (free but rate-limited)
+            { urls: ['turn:numb.viagenie.ca'], credential: 'webrtcdemo', username: 'webrtc@example.com', name: 'Viagenie TURN' },
+            { urls: ['turn:openrelay.metered.ca:80'], username: 'openrelayproject', credential: 'openrelayproject', name: 'OpenRelay TURN (80)' },
+            { urls: ['turn:openrelay.metered.ca:443'], username: 'openrelayproject', credential: 'openrelayproject', name: 'OpenRelay TURN (443)' }
+        ];
+
+        // Map server URLs to names for identification
+        const serverNameMap = {};
+        ICE_SERVERS.forEach(server => {
+            server.urls.forEach(url => {
+                const host = url.split(':')[1]; // Extract 'stun.l.google.com' or 'numb.viagenie.ca' etc
+                serverNameMap[host] = server.name;
+            });
+        });
+
+        // Try to identify which server a candidate came from
+        function identifyServer(candidateString) {
+            for (const [host, name] of Object.entries(serverNameMap)) {
+                if (candidateString.includes(host)) {
+                    return name;
+                }
+            }
+            return null;
+        }
+
+        // Logging utilities
+        function log(peerId, message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString('en-US', { 
+                hour12: false, 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit',
+                fractionalSecondDigits: 3
+            });
+            
+            const peerLabel = peerId === 1 ? '🖥️ PEER-1' : '🖥️ PEER-2';
+            const logEntry = `[${timestamp}] <${peerLabel}> ${message}`;
+            
+            console.log(logEntry);
+            
+            // Add to peer-specific log
+            const peerLog = document.getElementById(`peer${peerId}-log`);
+            if (peerLog) {
+                const div = document.createElement('div');
+                div.className = `log-entry ${type}`;
+                div.innerHTML = `<span class="log-time">[${timestamp}]</span> <span class="log-type">${type.toUpperCase()}:</span> ${message}`;
+                peerLog.appendChild(div);
+                peerLog.scrollTop = peerLog.scrollHeight;
+            }
+            
+            // Add to combined log
+            const combinedLog = document.getElementById('combined-log');
+            if (combinedLog) {
+                const div = document.createElement('div');
+                div.className = `log-entry ${type}`;
+                div.innerHTML = `<span class="log-time">[${timestamp}]</span> <strong>${peerLabel}</strong> ${message}`;
+                combinedLog.appendChild(div);
+                combinedLog.scrollTop = combinedLog.scrollHeight;
+            }
+        }
+
+        function addStatus(peerId, message, isError = false) {
+            const container = document.getElementById(`peer${peerId}-status`);
+            const div = document.createElement('div');
+            div.className = `status ${isError ? 'error' : 'success'}`;
+            div.textContent = message;
+            container.appendChild(div);
+        }
+
+        // Set peer role
+        function setPeerRole(role, peerId = 1) {
+            peers[peerId].role = role;
+            const display = document.getElementById(`peer${peerId}-role`);
+            display.textContent = `🎭 Role: ${role.toUpperCase()}`;
+            
+            // Update button states
+            document.querySelectorAll(`.panel:nth-child(${peerId}) .role-btn`).forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            log(peerId, `Role set to: ${role}`, 'info');
+        }
+
+        // Process ICE candidates that were queued before remote description was set
+        async function processQueuedIceCandidates(peerId) {
+            if (peers[peerId].pendingIceCandidates.length === 0) {
+                return;
+            }
+            
+            log(peerId, `📋 Processing ${peers[peerId].pendingIceCandidates.length} queued ICE candidates`, 'info');
+            
+            const candidates = peers[peerId].pendingIceCandidates;
+            peers[peerId].pendingIceCandidates = [];
+            
+            for (const candidateData of candidates) {
+                try {
+                    const type = candidateData.candidate.includes('host') ? 'HOST' : candidateData.candidate.includes('srflx') ? 'SRFLX' : 'RELAY';
+                    
+                    // Parse IP
+                    let ip = 'unknown';
+                    const ipv4Match = candidateData.candidate.match(/\d+\.\d+\.\d+\.\d+/);
+                    const ipv6Match = candidateData.candidate.match(/([0-9a-f:]+)/i);
+                    
+                    if (ipv4Match) {
+                        ip = ipv4Match[0];
+                    } else if (ipv6Match) {
+                        const addr = ipv6Match[1];
+                        ip = addr.length > 20 ? addr.substring(0, 15) + '...' : addr;
+                    }
+                    
+                    await peers[peerId].pc.addIceCandidate(
+                        new RTCIceCandidate({
+                            candidate: candidateData.candidate,
+                            sdpMLineIndex: 0
+                        })
+                    );
+                    log(peerId, `✅ Added queued ICE [${type}] ${ip}`, 'success');
+                } catch (error) {
+                    log(peerId, `⚠️ Failed to add queued ICE: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        // Start WebRTC
+        async function startWebRTC(peerId = 1) {
+            try {
+                if (!peers[peerId].role) {
+                    addStatus(peerId, '❌ Please select a role first', true);
+                    return;
+                }
+                
+                log(peerId, `Starting WebRTC (${peers[peerId].role})`, 'info');
+
+                // Create peer connection
+                peers[peerId].pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+                log(peerId, 'RTCPeerConnection created', 'success');
+
+                // Add timeout to detect if ICE gets stuck
+                let iceCheckingTimeout = setTimeout(() => {
+                    const state = peers[peerId].pc?.iceConnectionState;
+                    if (state === 'checking') {
+                        log(peerId, '⏱️ ICE stuck in "checking" for 30+ seconds - no connectivity between candidates', 'error');
+                        log(peerId, '💡 Troubleshooting: Check if both peers can reach STUN servers or each other directly', 'info');
+                    }
+                }, 30000);
+                
+                // Clear timeout if ICE completes
+                peers[peerId].pc.oniceconnectionstatechange = () => {
+                    clearTimeout(iceCheckingTimeout);
+                };
+                peers[peerId].iceCheckingTimeout = iceCheckingTimeout;
+
+                // Setup ICE candidate handling
+                peers[peerId].pc.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        const cand = event.candidate.candidate;
+                        const type = cand.includes('host') ? 'HOST' : cand.includes('srflx') ? 'SRFLX(STUN)' : cand.includes('relay') ? 'RELAY(TURN)' : 'PRFLX';
+                        
+                        // Parse IP - handles both IPv4 and IPv6
+                        let ip = 'unknown';
+                        const ipv4Match = cand.match(/\d+\.\d+\.\d+\.\d+/);
+                        const ipv6Match = cand.match(/([0-9a-f:]+)/i);
+                        
+                        if (ipv4Match) {
+                            ip = ipv4Match[0];
+                        } else if (ipv6Match) {
+                            const addr = ipv6Match[1];
+                            ip = addr.length > 20 ? addr.substring(0, 15) + '...' : addr;
+                        }
+                        
+                        // Show candidate type with explanation
+                        let typeDisplay = '';
+                        if (type === 'HOST') {
+                            typeDisplay = '🏠 [HOST-LAN]';
+                        } else if (type === 'SRFLX(STUN)') {
+                            typeDisplay = '🌐 [PUBLIC-STUN]';
+                        } else if (type === 'RELAY(TURN)') {
+                            typeDisplay = '🔀 [RELAY-TURN]';
+                        } else {
+                            typeDisplay = `[${type}]`;
+                        }
+                        
+                        // Try to identify server name
+                        const serverName = identifyServer(cand);
+                        const nameDisplay = serverName ? ` (${serverName})` : '';
+                        
+                        log(peerId, `🧊 ${typeDisplay}${nameDisplay} ${ip} priority=${event.candidate.priority}`, 'info');
+                        sendIceCandidate(peerId, event.candidate);
+                    } else {
+                        log(peerId, '✅ ICE gathering complete - all candidates collected', 'success');
+                    }
+                };
+
+                peers[peerId].pc.oniceconnectionstatechange = () => {
+                    clearTimeout(peers[peerId].iceCheckingTimeout);
+                    const state = peers[peerId].pc.iceConnectionState;
+                    const gatheringState = peers[peerId].pc.iceGatheringState;
+                    log(peerId, `🔗 ICE connection: ${state} (gathering: ${gatheringState})`, state === 'failed' ? 'error' : 'info');
+                    document.getElementById(`peer${peerId}-ice-state`).textContent = state;
+                    
+                    if (state === 'failed') {
+                        log(peerId, '❌ ICE FAILED - No working candidate pairs found. Peers may be unable to reach each other.', 'error');
+                        log(peerId, '💡 Troubleshooting: NAT/Firewall may be blocking UDP. Trying public STUN servers...', 'info');
+                        addStatus(peerId, '❌ ICE failed - check network/firewall');
+                    } else if (state === 'connected' || state === 'completed') {
+                        log(peerId, '✅ ICE CONNECTED successfully!', 'success');
+                        // Print connectionState for additional info
+                        setTimeout(() => {
+                            log(peerId, `📊 Connection state: ${peers[peerId].pc.connectionState}`, 'info');
+                        }, 100);
+                    }
+                };
+                
+                peers[peerId].pc.onicegatheringstatechange = () => {
+                    const state = peers[peerId].pc.iceGatheringState;
+                    log(peerId, `📡 ICE gathering: ${state}`, state === 'complete' ? 'success' : 'info');
+                };
+
+                peers[peerId].pc.onconnectionstatechange = () => {
+                    const state = peers[peerId].pc.connectionState;
+                    log(peerId, `Connection state: ${state}`, 'info');
+                    document.getElementById(`peer${peerId}-conn-state`).textContent = state;
+                };
+
+                if (peers[peerId].role === 'initiator') {
+                    // Initiator: Create data channel
+                    log(peerId, 'Creating data channel (INITIATOR)', 'info');
+                    peers[peerId].dc = peers[peerId].pc.createDataChannel('test-channel', { ordered: true });
+                    setupDataChannel(peerId);
+
+                    // Create and send offer
+                    const offer = await peers[peerId].pc.createOffer();
+                    await peers[peerId].pc.setLocalDescription(offer);
+                    log(peerId, 'Offer created, sending to peer...', 'info');
+                    await sendOffer(peerId, offer);
+
+                } else {
+                    // Responder: Wait for data channel from peer
+                    log(peerId, 'Waiting for data channel (RESPONDER)', 'info');
+                    peers[peerId].pc.ondatachannel = (event) => {
+                        log(peerId, `Data channel received: ${event.channel.label}`, 'success');
+                        peers[peerId].dc = event.channel;
+                        setupDataChannel(peerId);
+                    };
+
+                    // Poll for offer
+                    let offerData = null;
+                    while (!offerData) {
+                        const response = await fetch('/api/offer');
+                        offerData = await response.json();
+                        if (offerData.waiting) {
+                            await new Promise(r => setTimeout(r, 500));
+                            offerData = null;
+                        }
+                    }
+
+                    log(peerId, 'Offer received, processing...', 'info');
+                    await peers[peerId].pc.setRemoteDescription(new RTCSessionDescription(offerData));
+                    
+                    // After remote description is set, process any queued ICE candidates
+                    await processQueuedIceCandidates(peerId);
+
+                    // Create and send answer
+                    const answer = await peers[peerId].pc.createAnswer();
+                    await peers[peerId].pc.setLocalDescription(answer);
+                    log(peerId, 'Answer created, sending to peer...', 'info');
+                    await sendAnswer(peerId, answer);
+                }
+
+                // Poll for answer/ICE candidates
+                if (peers[peerId].role === 'initiator') {
+                    let answerData = null;
+                    while (!answerData) {
+                        const response = await fetch('/api/answer');
+                        answerData = await response.json();
+                        if (answerData.waiting) {
+                            await new Promise(r => setTimeout(r, 500));
+                            answerData = null;
+                        }
+                    }
+                    log(peerId, 'Answer received, processing...', 'info');
+                    await peers[peerId].pc.setRemoteDescription(new RTCSessionDescription(answerData));
+                    
+                    // After remote description is set, process any queued ICE candidates
+                    await processQueuedIceCandidates(peerId);
+                }
+
+                // Poll for ICE candidates
+                pollIceCandidates(peerId);
+
+                addStatus(peerId, '✅ WebRTC Setup Complete');
+            } catch (error) {
+                log(peerId, `Error: ${error.message}`, 'error');
+                addStatus(peerId, `❌ ${error.message}`, true);
+            }
+        }
+
+        // Setup data channel
+        function setupDataChannel(peerId) {
+            const dc = peers[peerId].dc;
+            dc.binaryType = 'arraybuffer';
+
+            dc.onopen = () => {
+                log(peerId, '✅ DATA CHANNEL OPENED!', 'success');
+                peers[peerId].dataChannelReady = true;
+                document.getElementById(`peer${peerId}-dc-state`).textContent = '✅ OPEN';
+                document.getElementById(`send-btn-${peerId}`).disabled = false;
+                addStatus(peerId, '✅ Data channel is ready!');
+            };
+
+            dc.onmessage = (event) => {
+                const message = event.data instanceof ArrayBuffer 
+                    ? `[Binary: ${event.data.byteLength} bytes]` 
+                    : event.data;
+                log(peerId, `📥 Received: ${message}`, 'success');
+                peers[peerId].stats.received++;
+                document.getElementById(`peer${peerId}-msg-recv`).textContent = peers[peerId].stats.received;
+            };
+
+            dc.onerror = (error) => {
+                log(peerId, `DATA CHANNEL ERROR: ${error}`, 'error');
+            };
+
+            dc.onclose = () => {
+                log(peerId, 'DATA CHANNEL CLOSED', 'error');
+                peers[peerId].dataChannelReady = false;
+                document.getElementById(`peer${peerId}-dc-state`).textContent = '❌ CLOSED';
+                document.getElementById(`send-btn-${peerId}`).disabled = true;
+            };
+        }
+
+        // Send test audio
+        function sendTestAudio(peerId = 1) {
+            try {
+                const message = `Test message from Peer ${peerId} at ${new Date().toLocaleTimeString()}`;
+                peers[peerId].dc.send(message);
+                log(peerId, `📤 Sent: ${message}`, 'success');
+                peers[peerId].stats.sent++;
+                document.getElementById(`peer${peerId}-msg-sent`).textContent = peers[peerId].stats.sent;
+            } catch (error) {
+                log(peerId, `Failed to send: ${error.message}`, 'error');
+            }
+        }
+
+        // Signaling functions
+        async function sendOffer(peerId, offer) {
+            try {
+                const response = await fetch('/api/offer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(offer)
+                });
+                log(peerId, 'Offer sent to server', 'info');
+            } catch (error) {
+                log(peerId, `Failed to send offer: ${error.message}`, 'error');
+            }
+        }
+
+        async function sendAnswer(peerId, answer) {
+            try {
+                const response = await fetch('/api/answer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(answer)
+                });
+                log(peerId, 'Answer sent to server', 'info');
+            } catch (error) {
+                log(peerId, `Failed to send answer: ${error.message}`, 'error');
+            }
+        }
+
+        async function sendIceCandidate(peerId, candidate) {
+            try {
+                await fetch('/api/ice', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        from: peers[peerId].role,
+                        candidate: candidate.candidate,
+                        sdpMLineIndex: candidate.sdpMLineIndex
+                    })
+                });
+            } catch (error) {
+                log(peerId, `Failed to send ICE: ${error.message}`, 'error');
+            }
+        }
+
+        function pollIceCandidates(peerId, attempts = 0) {
+            if (attempts > 100) {
+                log(peerId, 'Stopped polling ICE candidates', 'info');
+                return;
+            }
+
+            // This peer asks for candidates meant FOR them
+            // If initiator: ask for '/api/ice/initiator' (candidates from responder)
+            // If responder: ask for '/api/ice/responder' (candidates from initiator)
+            const myRole = peers[peerId].role;
+            
+            fetch(`/api/ice/${myRole}`)
+                .then(r => r.json())
+                .then(async (data) => {
+                    if (data.candidate) {
+                        try {
+                            const type = data.candidate.includes('host') ? 'HOST' : data.candidate.includes('srflx') ? 'SRFLX' : 'RELAY';
+                            
+                            // Parse IP - handles both IPv4 and IPv6
+                            let ip = 'unknown';
+                            const ipv4Match = data.candidate.match(/\d+\.\d+\.\d+\.\d+/);
+                            const ipv6Match = data.candidate.match(/([0-9a-f:]+)/i);
+                            
+                            if (ipv4Match) {
+                                ip = ipv4Match[0];
+                            } else if (ipv6Match) {
+                                const addr = ipv6Match[1];
+                                ip = addr.length > 20 ? addr.substring(0, 15) + '...' : addr;
+                            }
+                            
+                            // Try to identify server name
+                            const serverName = identifyServer(data.candidate);
+                            const nameDisplay = serverName ? ` (${serverName})` : '';
+                            
+                            await peers[peerId].pc.addIceCandidate(
+                                new RTCIceCandidate({
+                                    candidate: data.candidate,
+                                    sdpMLineIndex: 0
+                                })
+                            );
+                            log(peerId, `✅ Added ICE [${type}]${nameDisplay} ${ip}`, 'success');
+                        } catch (error) {
+                            // If remote description is not set, queue the candidate for later
+                            if (error.message.includes('remote description')) {
+                                log(peerId, `⏳ Queued ICE candidate (remote desc not ready yet)`, 'info');
+                                peers[peerId].pendingIceCandidates.push(data);
+                            } else {
+                                log(peerId, `⚠️ Failed to add ICE: ${error.message}`, 'error');
+                            }
+                        }
+                    }
+                    // Continue polling
+                    setTimeout(() => pollIceCandidates(peerId, attempts + 1), 500);
+                })
+                .catch(error => {
+                    setTimeout(() => pollIceCandidates(peerId, attempts + 1), 500);
+                });
+        }
+
+        function stopWebRTC(peerId = 1) {
+            if (peers[peerId].dc) peers[peerId].dc.close();
+            if (peers[peerId].pc) peers[peerId].pc.close();
+            log(peerId, 'WebRTC stopped', 'info');
+        }
+
+        // Dump connection stats for diagnostics
+        async function dumpConnectionStats(peerId) {
+            const statsDiv = document.getElementById(`peer${peerId}-stats-dump`);
+            statsDiv.innerHTML = '<span style="color: #ffff00;">📊 Gathering stats...</span>';
+            
+            try {
+                const pc = peers[peerId].pc;
+                if (!pc) {
+                    statsDiv.innerHTML = '<span style="color: #ff6666;">❌ No peer connection</span>';
+                    return;
+                }
+                
+                const stats = await pc.getStats();
+                let html = '<div style="color: #00cc00;">';
+                
+                // Group stats by type
+                const localCandidates = [];
+                const remoteCandidates = [];
+                const candidatePairs = [];
+                
+                stats.forEach(report => {
+                    if (report.type === 'local-candidate') localCandidates.push(report);
+                    if (report.type === 'remote-candidate') remoteCandidates.push(report);
+                    if (report.type === 'candidate-pair') candidatePairs.push(report);
+                });
+                
+                // Show state
+                html += `<strong>States:</strong><br>`;
+                html += `ICE: ${pc.iceConnectionState} | Connection: ${pc.connectionState}<br>`;
+                html += `Signaling: ${pc.signalingState}<br><br>`;
+                
+                // Show working candidate pair with detailed info
+                const workingPair = candidatePairs.find(p => p.state === 'succeeded');
+                if (workingPair) {
+                    html += `<strong style="color: #00ff00;">✅ Working Candidate Pair:</strong><br>`;
+                    
+                    // Find the actual candidates
+                    const localCand = localCandidates.find(c => c.id === workingPair.localCandidateId);
+                    const remoteCand = remoteCandidates.find(c => c.id === workingPair.remoteCandidateId);
+                    
+                    if (localCand) {
+                        const candType = localCand.candidateType;
+                        const candAddr = localCand.address || 'N/A';
+                        const candPort = localCand.port || 'N/A';
+                        const protocol = localCand.protocol || 'N/A';
+                        
+                        html += `<strong>Local:</strong> [${candType.toUpperCase()}] ${candAddr}:${candPort} (${protocol})<br>`;
+                        
+                        if (candType === 'srflx') {
+                            html += `<span style="color: #ffff00;">  ➜ 🌐 Public IP discovered via one of our STUN servers</span><br>`;
+                        } else if (candType === 'relay') {
+                            html += `<span style="color: #ff00ff;">  ➜ 🔀 Relay working (Viagenie or OpenRelay TURN)</span><br>`;
+                        } else if (candType === 'host') {
+                            html += `<span style="color: #00ffff;">  ➜ 🏠 Local LAN address</span><br>`;
+                        }
+                    }
+                    
+                    if (remoteCand) {
+                        const candType = remoteCand.candidateType;
+                        const candAddr = remoteCand.address || 'N/A';
+                        const candPort = remoteCand.port || 'N/A';
+                        const protocol = remoteCand.protocol || 'N/A';
+                        
+                        html += `<strong>Remote:</strong> [${candType.toUpperCase()}] ${candAddr}:${candPort} (${protocol})<br>`;
+                    }
+                    
+                    html += `<br>`;
+                    html += `Pair State: ${workingPair.state}<br>`;
+                    html += `Round-trip: ${(workingPair.currentRoundTripTime * 1000).toFixed(2)}ms<br>`;
+                    html += `Available Out: ${(workingPair.availableOutgoingBitrate / 1024 / 1024).toFixed(2)} Mbps<br><br>`;
+                } else if (candidatePairs.length > 0) {
+                    html += `<strong style="color: #ffff00;">⚠️ No working pair yet. Candidates being tried:</strong><br>`;
+                    candidatePairs.slice(0, 5).forEach(p => {
+                        const state = p.state;
+                        const current = p.current ? '(current)' : '';
+                        html += `State: ${state} ${current}<br>`;
+                    });
+                    html += `<br>`;
+                } else {
+                    html += `<strong style="color: #ff6666;">❌ No candidate pairs formed</strong><br><br>`;
+                }
+                
+                // Show all candidates that were gathered
+                html += `<strong>Gathered Candidates:</strong><br>`;
+                if (localCandidates.length === 0) {
+                    html += `<span style="color: #ff6666;">❌ No local candidates gathered!</span><br>`;
+                } else {
+                    html += `<strong>Local (${localCandidates.length}):</strong><br>`;
+                    localCandidates.forEach(c => {
+                        const type = (c.candidateType || 'unknown').toUpperCase();
+                        const addr = c.address || 'unknown';
+                        
+                        // Color code by type
+                        let color = '#00cc00'; // host
+                        let icon = '🏠';
+                        if (type === 'SRFLX') {
+                            color = '#ffff00'; // STUN
+                            icon = '🌐';
+                        }
+                        if (type === 'RELAY') {
+                            color = '#ff00ff'; // TURN
+                            icon = '🔀';
+                        }
+                        
+                        html += `  <span style="color: ${color};">${icon} [${type}] ${addr}</span><br>`;
+                    });
+                }
+                
+                if (remoteCandidates.length > 0) {
+                    html += `<strong>Remote (${remoteCandidates.length}):</strong><br>`;
+                    remoteCandidates.forEach(c => {
+                        const type = (c.candidateType || 'unknown').toUpperCase();
+                        const addr = c.address || 'unknown';
+                        
+                        let icon = '🏠';
+                        if (type === 'SRFLX') icon = '🌐';
+                        if (type === 'RELAY') icon = '🔀';
+                        
+                        html += `  <span style="color: #00aaff;">${icon} [${type}] ${addr}</span><br>`;
+                    });
+                }
+                
+                // Show data channel stats
+                if (peers[peerId].dc) {
+                    html += `<br><strong>Data Channel:</strong><br>`;
+                    html += `State: ${peers[peerId].dc.readyState}<br>`;
+                    html += `Buffered: ${peers[peerId].dc.bufferedAmount} bytes<br><br>`;
+                }
+                
+                html += '</div>';
+                statsDiv.innerHTML = html;
+                
+            } catch (error) {
+                statsDiv.innerHTML = `<span style="color: #ff6666;">❌ Error: ${error.message}</span>`;
+            }
+        }
+
+        async function resetTest() {
+            await fetch('/api/reset', { method: 'POST' });
+            location.reload();
+        }
+
+        // IP Lookup function
+        async function lookupIpInfo() {
+            const input = document.getElementById('ip-lookup-input').value.trim();
+            const resultDiv = document.getElementById('ip-lookup-result');
+            
+            if (!input) {
+                resultDiv.innerHTML = '<span style="color: #ff6666;">❌ Please enter an IP address</span>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '<span style="color: #ffff00;">🔍 Looking up IP info...</span>';
+            
+            try {
+                // Use ipwhois.io API (free, no key required)
+                const response = await fetch(`https://ipwhois.app/json/${input}`);
+                const data = await response.json();
+                
+                if (data.success === false) {
+                    resultDiv.innerHTML = `<span style="color: #ff6666;">❌ Invalid IP or lookup failed</span>`;
+                    return;
+                }
+                
+                let html = '<strong style="color: #00ff99;">📍 IP Information:</strong><br>';
+                html += `<strong>IP:</strong> ${data.ip}<br>`;
+                html += `<strong>ISP:</strong> ${data.isp || 'Unknown'}<br>`;
+                html += `<strong>Organization:</strong> ${data.org || 'Unknown'}<br>`;
+                html += `<strong>Country:</strong> ${data.country || 'Unknown'}<br>`;
+                html += `<strong>Region:</strong> ${data.region || 'Unknown'}<br>`;
+                html += `<strong>City:</strong> ${data.city || 'Unknown'}<br>`;
+                html += `<strong>Type:</strong> ${data.type || 'Unknown'}<br>`;
+                
+                // Check if it's a Google IP
+                if ((data.org || '').toLowerCase().includes('google') || 
+                    (data.isp || '').toLowerCase().includes('google')) {
+                    html += '<br><span style="color: #ffff00;">✅ This is a GOOGLE IP - likely from Google STUN servers!</span>';
+                }
+                
+                // Check if it looks like a data center
+                if ((data.type || '').toLowerCase().includes('datacenter') ||
+                    (data.org || '').toLowerCase().includes('google cloud') ||
+                    (data.org || '').toLowerCase().includes('cloud')) {
+                    html += '<br><span style="color: #00ff99;">✅ Data center detected - suitable for STUN/TURN</span>';
+                }
+                
+                resultDiv.innerHTML = html;
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<span style="color: #ff6666;">❌ Error: ${error.message}</span><br><span style="color: #888; font-size: 10px;">Make sure you're online and CORS is enabled</span>`;
+            }
+        }
+    </script>
+</body>
+</html>
