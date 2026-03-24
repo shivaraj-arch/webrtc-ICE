@@ -205,7 +205,7 @@ node socket.mjs`
 2. In one window, choose Initiator.
 3. In the other window, choose Responder.
 4. Start the WebRTC flow and wait for the connection to be established.
-5. For testing on another device on the same network, open: http://<your-local-ip>:3000
+5. For testing on another device on the same network, open: http://\<your-local-ip\>:3000
 6. If the connection gets stuck or you want a fresh test, call the reset flow and restart the handshake.
 
 
