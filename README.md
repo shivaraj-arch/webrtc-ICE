@@ -240,25 +240,26 @@ Reason:
 
 ## How to Run
 
-### Install dependencies:
-```bash
-npm install
-```
-
-### Start the signaling server:
+### Install dependencies
 
 ```bash
-node socket.mjs`
+npm install
 ```
 
-### Open the test page in two browser windows:
+### Start the signaling server
 
-1. http://localhost:3000
-2. In one window, choose Initiator.
-3. In the other window, choose Responder.
+```bash
+node socket.mjs
+```
+
+### Open the test page
+
+1. Open `http://localhost:3000` in two browser windows.
+2. In one window, choose `Initiator`.
+3. In the other window, choose `Responder`.
 4. Start the WebRTC flow and wait for the connection to be established.
-5. For testing on another device on the same network, open: http://\<your-local-ip\>:3000
-6. If the connection gets stuck or you want a fresh test, call the reset flow and restart the handshake.
+5. For testing on another device on the same network, open `http://<your-local-ip>:3000`.
+6. If the connection gets stuck or you want a fresh test, use the reset flow and restart the handshake.
 
 
 ## Endpoint Reference
