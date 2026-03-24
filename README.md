@@ -185,6 +185,30 @@ Reason:
 2. They may arrive over time.
 3. Each peer should receive only the candidates meant for it.
 
+
+## How to Run
+
+### Install dependencies:
+```bash
+npm install
+```
+
+### Start the signaling server:
+
+```bash
+node socket.mjs`
+```
+
+### Open the test page in two browser windows:
+
+1. http://localhost:3000
+2. In one window, choose Initiator.
+3. In the other window, choose Responder.
+4. Start the WebRTC flow and wait for the connection to be established.
+5. For testing on another device on the same network, open: http://<your-local-ip>:3000
+6. If the connection gets stuck or you want a fresh test, call the reset flow and restart the handshake.
+
+
 ## Endpoint Reference
 
 ### `GET /`
@@ -353,3 +377,5 @@ Do not treat it as the full backend for a production application.
 4. enables two browsers to establish a direct WebRTC connection
 
 Its role ends once the peer-to-peer connection is established.
+
+
